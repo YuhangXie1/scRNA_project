@@ -5,6 +5,7 @@ __pycache__/
 
 #the data file
 mm_blood_10x/
+cache/
 
 # C extensions
 *.so
