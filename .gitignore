@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#the data file
+mm_blood_10x/
+
 # C extensions
 *.so
 
