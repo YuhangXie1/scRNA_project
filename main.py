@@ -1,7 +1,7 @@
 import scanpy as sc
 import anndata as ad
-import pooch
 import pandas as pd
+import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")  # Or "Qt5Agg" depending on your setup
 import matplotlib.pyplot as plt
@@ -20,14 +20,17 @@ samples = {
 }
 
 adata = sc.read_10x_mtx("mm_blood_10x/mm_blood_10x/blood_ss_KO_B6/mtx/", cache=True)
+# print(adata.shape)
+# for i in range(0,5):
+#     print(adata[i])
 
 #QC
 # mitochondrial genes, "MT-" for human, "Mt-" for mouse
-adata.var["mt"] = adata.var_names.str.startswith("MT-")
+adata.var["mt"] = adata.var_names.str.startswith("mt-")
 # ribosomal genes
-adata.var["ribo"] = adata.var_names.str.startswith(("RPS", "RPL"))
+adata.var["ribo"] = adata.var_names.str.startswith(("Rps", "Rpl"))
 # hemoglobin genes
-adata.var["hb"] = adata.var_names.str.contains("^HB[^(P)]")
+adata.var["hb"] = adata.var_names.str.contains("^Hb[^(P)]")
 
 sc.pp.calculate_qc_metrics(
     adata,  qc_vars=["mt", "ribo", "hb"], inplace=True, log1p=True
@@ -42,12 +45,23 @@ sc.pl.violin(
 
 sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="pct_counts_mt")
 
-#removing cells with less than 100 genes. Removing genes with less than 3 cells
-sc.pp.filter_cells(adata, min_genes=100)
+
+# Step 2: Calculate the percentage of mitochondrial genes per cell
+# Sum the counts for mitochondrial genes
+mito_genes = adata.var_names.str.startswith('mt-')
+adata.obs['mito_percentage'] = np.sum(adata[:, mito_genes].X, axis=1).A1 / np.sum(adata.X, axis=1).A1 * 100
+
+# Step 3: Filter cells with high mitochondrial content
+# You can adjust the threshold (e.g., 10% in this case)
+mito_threshold = 10
+adata = adata[adata.obs['mito_percentage'] < mito_threshold, :]
+
+#removing cells with less than 200 genes. Removing genes with less than 3 cells
+sc.pp.filter_cells(adata, min_genes=200)
 sc.pp.filter_genes(adata, min_cells=3)
 
 #doublet detection and removal
-#sc.pp.scrublet(adata, batch_key="sample")
+sc.pp.scrublet(adata)
 
 #normalisation
 # Saving count data
@@ -58,10 +72,52 @@ sc.pp.normalize_total(adata)
 sc.pp.log1p(adata)
 
 #feature selection
-#sc.pp.highly_variable_genes(adata, n_top_genes=2000, batch_key="sample")
-#sc.pl.highly_variable_genes(adata)
+sc.pp.highly_variable_genes(adata, n_top_genes=2000)
+sc.pl.highly_variable_genes(adata)
 
 
 #reduce dimensionality
-#sc.tl.pca(adata)
-#sc.pl.pca_variance_ratio(adata, n_pcs=50, log=True)
+sc.tl.pca(adata)
+sc.pl.pca_variance_ratio(adata, n_pcs=50, log=True)
+
+# sc.pl.pca(
+#     adata,
+#     #color=["sample", "sample", "pct_counts_mt", "pct_counts_mt"],
+#     dimensions=[(0, 1), (2, 3), (0, 1), (2, 3)],
+#     ncols=2,
+#     size=2,
+# )
+
+#nearest neighbour
+sc.pp.neighbors(adata)
+sc.tl.umap(adata)
+sc.pl.umap(
+    adata,
+    #color="sample",
+    # Setting a smaller point size to get prevent overlap
+    size=2,
+)
+
+#clustering
+# Using the igraph implementation and a fixed number of iterations can be significantly faster, especially for larger datasets
+sc.tl.leiden(adata, flavor="igraph", n_iterations=2)
+sc.pl.umap(adata, color=["leiden"])
+
+#refiltering
+sc.pl.umap(
+    adata,
+    color=["leiden", "predicted_doublet", "doublet_score"],
+    # increase horizontal space between panels
+    wspace=0.5,
+    size=3,
+)
+
+sc.pl.umap(
+    adata,
+    color=["leiden", "log1p_total_counts", "pct_counts_mt", "log1p_n_genes_by_counts"],
+    wspace=0.5,
+    ncols=2,
+)
+
+#saving as data file
+adata.write("ss_KO_processed.h5ad")
