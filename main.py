@@ -120,4 +120,21 @@ sc.pl.umap(
 )
 
 #saving as data file
-adata.write("ss_KO_processed.h5ad")
+#adata.write("ss_KO_processed.h5ad")
+
+marker_genes = {
+    "monocyte":["Csf1r","Csf1","Itgam","Ly6c1","Tlr4","Cd14","Ifngr1","Nos2","Cx3cr1","Ccr2","Ccl2","Mafb","Spi1","Irf8","Batf3","Fcgr1","Mertk","Syk","Relb","Il1b","Nlrp3","Cd36","Hif1a","Stat3","Tnf"]
+}
+
+missing_genes = [gene for gene in marker_genes["monocyte"] if gene not in adata.var_names]
+print(f"Missing genes: {missing_genes}")
+
+
+sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.02", standard_scale="var")
+adata.obs["cell_type_lvl1"] = adata.obs["leiden_res_0.02"].map(
+    {
+        "0": "Other cells",
+        "1": "Monocytes",
+    }
+)
+sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.50", standard_scale="var")
