@@ -16,10 +16,10 @@ samples = {
     "12w_WT_01":"blood_12w_WT_01",
     "12w_WT_02":"blood_12w_WT_02",
     "ss_KO":"blood_ss_KO_B6",
-    "ss_WT":"blood_ss_KO_B6"
+    "ss_WT":"blood_ss_WT_B6"
 }
 
-adata = sc.read_10x_mtx("mm_blood_10x/mm_blood_10x/blood_12w_KO_01/mtx/", cache=True)
+adata = sc.read_10x_mtx("mm_blood_10x/mm_blood_10x/blood_ss_KO_B6/mtx/", cache=True)
 # print(adata.shape)
 # for i in range(0,5):
 #     print(adata[i])
@@ -41,10 +41,10 @@ sc.pl.violin(
     ["n_genes_by_counts", "total_counts", "pct_counts_mt"],
     jitter=0.4,
     multi_panel=True,
-    save="ss_WT_violin.png"
+    save="ss_KO_violin.png"
 )
 
-sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="pct_counts_mt",save="ss_WT_total_counts_scatter.png")
+sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="pct_counts_mt",save="ss_KO_total_counts_scatter.png")
 
 
 # Step 2: Calculate the percentage of mitochondrial genes per cell
@@ -63,6 +63,18 @@ sc.pp.filter_genes(adata, min_cells=5)
 
 #doublet detection and removal
 sc.pp.scrublet(adata)
+
+sc.pl.violin(
+    adata,
+    ["n_genes_by_counts", "total_counts", "pct_counts_mt"],
+    jitter=0.4,
+    multi_panel=True,
+    save="ss_KO_violin.png"
+)
+
+sc.pl.scatter(adata, "total_counts", "n_genes_by_counts", color="pct_counts_mt",save="ss_KO_total_counts_scatter.png")
+
+
 
 #normalisation
 # Saving count data
@@ -123,4 +135,4 @@ sc.pl.umap(
 )
 
 #saving as data file
-adata.write("12w_KO_01_processed.h5ad")
+#adata.write("12w_KO_01_processed.h5ad")

@@ -26,46 +26,55 @@ labels = ["12w_KO_01_processed.h5ad",
             "ss_WT_processed.h5ad"
 ]
 
-adata_list = [sc.read_h5ad(f"mm_blood_10x/{file}") for file in file_paths]
-adata = ad.concat(adata_list, axis=0, join="outer", label="source", keys=labels, index_unique="-")
+adata = sc.read_h5ad("mm_blood_10x/merged.h5ad")
 
+#clustering - pass 1
+for res in [0.02]:
+    sc.tl.leiden(
+        adata, key_added=f"leiden_res_{res:4.2f}", resolution=res, flavor="igraph"
+    )
 
-# Check if the matrix is sparse
-if sp.issparse(adata.X):
-    # For sparse matrices, convert to dense format temporarily to check for NaN
-    has_nan = np.isnan(adata.X.data).any()  # Check only the non-zero entries
-else:
-    # For dense matrices, use np.isnan directly
-    has_nan = np.isnan(adata.X).any()
+adata = adata[adata.obs["leiden_res_0.02"].isin(["0", "2"]), :]
+# Recompute PCA (optional, but recommended after subsetting)
+sc.pp.pca(adata, n_comps=50)
 
-print(f"Does adata.X contain NaN values? {has_nan}")
-# Check for NaN values in the raw matrix
-# print(np.isnan(adata.X.data).any())  # Check raw expression data
+# Recompute the neighbors graph
+sc.pp.neighbors(adata, n_neighbors=10, use_rep="X_pca")  # Ensure correct representation is used
 
-# # Check for NaN values in specific columns/rows of PCA
-# print(np.isnan(adata.obsm['X_pca']).sum(axis=0))  # Per feature
-# print(np.isnan(adata.obsm['X_pca']).sum(axis=1))  # Per cell
+#clustering - pass 2
+for res in [0.02]:
+    sc.tl.leiden(
+        adata, key_added=f"leiden_res_{res:4.2f}", resolution=res, flavor="igraph"
+    )
+    
+adata = adata[adata.obs["leiden_res_0.02"].isin(["0","1", "2"]), :]
+# Recompute PCA (optional, but recommended after subsetting)
+sc.pp.pca(adata, n_comps=50)
 
+# Recompute the neighbors graph
+sc.pp.neighbors(adata, n_neighbors=10, use_rep="X_pca")  # Ensure correct representation is used
 
-
-
-sc.pp.neighbors(adata, n_neighbors=10)  # Replace 'X_pca' with the desired representation
 
 #clustering
-for res in [0.02, 0.35, 0.5, 2.0]:
+for res in [0.02, 0.35, 0.5]:
     sc.tl.leiden(
         adata, key_added=f"leiden_res_{res:4.2f}", resolution=res, flavor="igraph"
     )
 
 sc.pl.umap(
     adata,
-    color=["leiden_res_0.02", "leiden_res_0.35", "leiden_res_0.50", "leiden_res_2.00"],
+    color=["leiden_res_0.02", "leiden_res_0.35", "leiden_res_0.50"],
     legend_loc="on data",
     save = "cluster_different_leiden.png"
 )
 
 marker_genes = {
-    "monocyte":["Csf1r","Csf1","Itgam","Ly6c1","Tlr4","Cd14","Ifngr1","Cx3cr1","Ccr2","Ccl2","Mafb","Spi1","Irf8","Batf3","Fcgr1","Mertk","Syk","Relb","Il1b","Nlrp3","Cd36","Hif1a","Stat3","Tnf"]
+    "monocyte":["Itgam","Plac8","Csf1r","Ly6c2","Cx3cr1","Ace","Spn","Ccr2"],
+    "T cells" : ["Cd3e","Cd3g","Cd3e","Ly6c2"],
+    "NK cells": ["Nkg7", "Gzma"],
+    "B cells" : ["Cd79a","Cd79b"],
+    "Neutrophils": ["Ly6g","Csf3r"],
+    "Densdritic": ["Clec10a","Clec9a","Xcr1","Flt3"]
 }
 
 missing_genes = [gene for gene in marker_genes["monocyte"] if gene not in adata.var_names]
@@ -81,13 +90,16 @@ adata.obs["cell_type_lvl1"] = adata.obs["leiden_res_0.02"].map(
 
 )
 sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.50", standard_scale="var", save = "genes_leiden_res_0.50.png")
+sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.35", standard_scale="var", save = "genes_leiden_res_0.35.png")
+#adata.write("monocyte_only.h5ad")
 
-
+"""
 #differential gene expression
 # Obtain cluster-specific differentially expressed genes
-sc.tl.rank_genes_groups(adata, groupby="leiden_res_0.50", method="wilcoxon")
+group = "leiden_res_0.02"
+sc.tl.rank_genes_groups(adata, groupby=group, method="wilcoxon")
 sc.pl.rank_genes_groups_dotplot(
-    adata, groupby="leiden_res_0.50", standard_scale="var", n_genes=5, save="cluster_genes_groups.png"
+    adata, groupby=group, standard_scale="var", n_genes=5, save=f"cluster_genes_groups_{group}.png"
 )
 sc.get.rank_genes_groups_df(adata, group="7").head(5)
 
@@ -100,6 +112,4 @@ sc.pl.umap(
     ncols=3,
     save="cluster_genes.png"
 )
-
-#saving as data file
-adata.write("merged.h5ad")
+"""
