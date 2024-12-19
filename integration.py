@@ -54,4 +54,4 @@ for batch in file_paths:
 for cluster in range(0,14,1):
     sc.pl.umap(adata, color="leiden_res_0.50", groups=[str(cluster)], save = f"by_leiden0.5_{cluster}.png")
 
-adata.write("integrated_data.h5ad")
+#adata.write("integrated_data.h5ad")
