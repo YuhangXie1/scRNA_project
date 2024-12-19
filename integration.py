@@ -14,7 +14,10 @@ sc.settings.set_figure_params(dpi=80, frameon=False, figsize=(3, 3), facecolor="
 
 adata = sc.read_h5ad("mm_blood_10x/monocytes_only.h5ad")
 
-print(adata.obs.columns)
+adata = adata[adata.obs['leiden_res_0.50'] != '3'].copy() #selected all data but cluster 3
+#sc.pl.umap(adata, color=["leiden_res_0.50"], legend_loc="on data")
+
+#print(adata.obs.columns)
 
 
 sc.tl.pca(adata)
@@ -23,15 +26,15 @@ sc.tl.umap(adata)
 sc.pl.umap(adata, color=["source"], save = "source_after_bbknn.png")
 sc.pl.umap(adata, color=["leiden_res_0.50"], legend_loc = "on data", save = "leiden_res_0.50_after_bbknn.png")
 
-sc.pp.pca(adata)
-sc.pp.neighbors(adata)
-sc.tl.umap(adata)
-sc.pl.umap(
-    adata, color=["source"], palette=sc.pl.palettes.vega_20_scanpy, save = "recluster_source_after_bbknn.png"
-)
-sc.pl.umap(
-    adata, color=["leiden_res_0.50"], legend_loc = "on data", palette=sc.pl.palettes.vega_20_scanpy, save = "recluster_leiden0.5_after_bbknn.png"
-)
+# sc.pp.pca(adata)
+# sc.pp.neighbors(adata)
+# sc.tl.umap(adata)
+# sc.pl.umap(
+#     adata, color=["source"], palette=sc.pl.palettes.vega_20_scanpy, save = "recluster_source_after_bbknn.png"
+# )
+# sc.pl.umap(
+#     adata, color=["leiden_res_0.50"], legend_loc = "on data", palette=sc.pl.palettes.vega_20_scanpy, save = "recluster_leiden0.5_after_bbknn.png"
+# )
 
 sc.tl.embedding_density(adata, groupby="source")
 sc.pl.embedding_density(adata, groupby="source", save = "density_source_bbknn.png")
@@ -50,3 +53,5 @@ for batch in file_paths:
 
 for cluster in range(0,14,1):
     sc.pl.umap(adata, color="leiden_res_0.50", groups=[str(cluster)], save = f"by_leiden0.5_{cluster}.png")
+
+adata.write("integrated_data.h5ad")

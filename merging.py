@@ -39,17 +39,9 @@ else:
     has_nan = np.isnan(adata.X).any()
 
 print(f"Does adata.X contain NaN values? {has_nan}")
-# Check for NaN values in the raw matrix
-# print(np.isnan(adata.X.data).any())  # Check raw expression data
-
-# # Check for NaN values in specific columns/rows of PCA
-# print(np.isnan(adata.obsm['X_pca']).sum(axis=0))  # Per feature
-# print(np.isnan(adata.obsm['X_pca']).sum(axis=1))  # Per cell
 
 
-
-
-sc.pp.neighbors(adata, n_neighbors=10)  # Replace 'X_pca' with the desired representation
+sc.pp.neighbors(adata, n_neighbors=10)
 
 #clustering
 for res in [0.02, 0.35, 0.5, 2.0]:
@@ -65,24 +57,18 @@ sc.pl.umap(
 )
 
 marker_genes = {
-    "monocyte":["Csf1r","Csf1","Itgam","Ly6c1","Tlr4","Cd14","Ifngr1","Cx3cr1","Ccr2","Ccl2","Mafb","Spi1","Irf8","Batf3","Fcgr1","Mertk","Syk","Relb","Il1b","Nlrp3","Cd36","Hif1a","Stat3","Tnf"]
+    "monocyte":["Itgam","Plac8","Csf1r","Ly6c2","Cx3cr1","Ace","Spn","Ccr2"],
+    "T cells" : ["Cd3e","Cd3g","Cd3d","Ly6c2"],
+    "NK cells": ["Nkg7", "Gzma"],
+    "B cells" : ["Cd79a","Cd79b"],
+    "Neutrophils": ["Ly6g","Csf3r"],
+    "Densdritic": ["Clec10a","Clec9a","Xcr1","Flt3"]
 }
 
-missing_genes = [gene for gene in marker_genes["monocyte"] if gene not in adata.var_names]
-print(f"Missing genes: {missing_genes}")
-
-
 sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.02", standard_scale="var", save = "genes_leiden_res_0.02.png")
-adata.obs["cell_type_lvl1"] = adata.obs["leiden_res_0.02"].map(
-    {
-        "0": "Other cells",
-        "1": "Monocytes",
-    }
-
-)
 sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.50", standard_scale="var", save = "genes_leiden_res_0.50.png")
 
-
+"""
 #differential gene expression
 # Obtain cluster-specific differentially expressed genes
 sc.tl.rank_genes_groups(adata, groupby="leiden_res_0.50", method="wilcoxon")
@@ -100,6 +86,6 @@ sc.pl.umap(
     ncols=3,
     save="cluster_genes.png"
 )
-
+"""
 #saving as data file
-adata.write("merged.h5ad")
+#adata.write("merged.h5ad")

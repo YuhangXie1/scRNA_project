@@ -26,90 +26,53 @@ labels = ["12w_KO_01_processed.h5ad",
             "ss_WT_processed.h5ad"
 ]
 
-adata = sc.read_h5ad("mm_blood_10x/merged.h5ad")
-
-#clustering - pass 1
-for res in [0.02]:
-    sc.tl.leiden(
-        adata, key_added=f"leiden_res_{res:4.2f}", resolution=res, flavor="igraph"
-    )
-
-adata = adata[adata.obs["leiden_res_0.02"].isin(["0", "2"]), :]
-# Recompute PCA (optional, but recommended after subsetting)
-sc.pp.pca(adata, n_comps=50)
-
-# Recompute the neighbors graph
-sc.pp.neighbors(adata, n_neighbors=10, use_rep="X_pca")  # Ensure correct representation is used
-
-#clustering - pass 2
-for res in [0.02]:
-    sc.tl.leiden(
-        adata, key_added=f"leiden_res_{res:4.2f}", resolution=res, flavor="igraph"
-    )
-    
-adata = adata[adata.obs["leiden_res_0.02"].isin(["0","1", "2"]), :]
-# Recompute PCA (optional, but recommended after subsetting)
-sc.pp.pca(adata, n_comps=50)
-
-# Recompute the neighbors graph
-sc.pp.neighbors(adata, n_neighbors=10, use_rep="X_pca")  # Ensure correct representation is used
-
-
-#clustering
-for res in [0.02, 0.35, 0.5]:
-    sc.tl.leiden(
-        adata, key_added=f"leiden_res_{res:4.2f}", resolution=res, flavor="igraph"
-    )
-
-sc.pl.umap(
-    adata,
-    color=["leiden_res_0.02", "leiden_res_0.35", "leiden_res_0.50"],
-    legend_loc="on data",
-    save = "cluster_different_leiden.png"
-)
-
 marker_genes = {
     "monocyte":["Itgam","Plac8","Csf1r","Ly6c2","Cx3cr1","Ace","Spn","Ccr2"],
-    "T cells" : ["Cd3e","Cd3g","Cd3e","Ly6c2"],
+    "T cells" : ["Cd3e","Cd3g","Cd3d","Ly6c2"],
     "NK cells": ["Nkg7", "Gzma"],
     "B cells" : ["Cd79a","Cd79b"],
     "Neutrophils": ["Ly6g","Csf3r"],
     "Densdritic": ["Clec10a","Clec9a","Xcr1","Flt3"]
 }
 
-missing_genes = [gene for gene in marker_genes["monocyte"] if gene not in adata.var_names]
-print(f"Missing genes: {missing_genes}")
+adata = sc.read_h5ad("mm_blood_10x/merged.h5ad")
+
+def generate_cluster(adata, pass_key):
+    sc.pp.pca(adata, n_comps=50)
+    sc.pp.neighbors(adata, n_neighbors=10, use_rep="X_pca")
+
+    for res in [0.02, 0.35, 0.50]:
+        sc.tl.leiden(
+            adata, key_added=f"leiden_res_{res:4.2f}", resolution=res, flavor="igraph"
+        )
+
+    #generating cluster map
+    sc.pl.umap(
+        adata,
+        color=["leiden_res_0.02", "leiden_res_0.35", "leiden_res_0.50"],
+        legend_loc="on data",
+        save = f"cluster_different_leiden_pass_{pass_key}.png"
+    )
+
+    #generating gene plots
+    sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.02", standard_scale="var", save = f"genes_leiden_res_0.02_pass_{pass_key}.png")
+    sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.35", standard_scale="var", save = f"genes_leiden_res_0.35_pass_{pass_key}.png")
+    sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.50", standard_scale="var", save = f"genes_leiden_res_0.50_pass_{pass_key}.png")
 
 
-sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.02", standard_scale="var", save = "genes_leiden_res_0.02.png")
-adata.obs["cell_type_lvl1"] = adata.obs["leiden_res_0.02"].map(
-    {
-        "0": "Other cells",
-        "1": "Monocytes",
-    }
+#pass 1
+generate_cluster(adata, pass_key = 1)
 
-)
-sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.50", standard_scale="var", save = "genes_leiden_res_0.50.png")
-sc.pl.dotplot(adata, marker_genes, groupby="leiden_res_0.35", standard_scale="var", save = "genes_leiden_res_0.35.png")
-#adata.write("monocyte_only.h5ad")
+#pass 2
+adata = adata[adata.obs["leiden_res_0.02"].isin(["0", "2"]), :]
+generate_cluster(adata, pass_key = 2)
 
-"""
-#differential gene expression
-# Obtain cluster-specific differentially expressed genes
-group = "leiden_res_0.02"
-sc.tl.rank_genes_groups(adata, groupby=group, method="wilcoxon")
-sc.pl.rank_genes_groups_dotplot(
-    adata, groupby=group, standard_scale="var", n_genes=5, save=f"cluster_genes_groups_{group}.png"
-)
-sc.get.rank_genes_groups_df(adata, group="7").head(5)
+#pass 3
+adata = adata[adata.obs["leiden_res_0.02"].isin(["0","1", "2"]), :]
+generate_cluster(adata, pass_key = 3)
 
-dc_cluster_genes = sc.get.rank_genes_groups_df(adata, group="7").head(5)["names"]
-sc.pl.umap(
-    adata,
-    color=[*dc_cluster_genes, "leiden_res_0.50"],
-    legend_loc="on data",
-    frameon=False,
-    ncols=3,
-    save="cluster_genes.png"
-)
-"""
+
+
+
+adata.write("monocyte_only.h5ad")
+
